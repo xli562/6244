@@ -1,6 +1,7 @@
 .vscode
+.codex
 scratch
-
+tutorial/mujoco
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -222,3 +223,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Downloaded upstream simulation assets and generated observations
+assets/vendor/
+outputs/
