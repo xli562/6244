@@ -11,6 +11,7 @@ import mujoco
 import numpy as np
 
 from fetch_assets import ASSET_DIR, SOURCES
+from progress import progress_bar
 
 
 HOME = np.array([0, -0.45, 0, -2.1, 0, 1.65, 0.7854])
@@ -445,6 +446,7 @@ def run() -> None:
     parser.add_argument('--drawer-demo', action='store_true',
                         help='Apply external forces to cycle the passive drawer (diagnostic).')
     parser.add_argument('--output', type=Path, help='Save RGB, depth, calibration, and scene.')
+    parser.add_argument('--no-progress', action='store_true', help='Disable headless simulation progress.')
     args = parser.parse_args()
     if not np.isfinite(args.seconds) or args.seconds <= 0:
         parser.error('--seconds must be finite and positive.')
@@ -475,8 +477,12 @@ def run() -> None:
 
     try:
         if args.headless:
-            while simulation.data.time < args.seconds:
-                advance()
+            with progress_bar(total=args.seconds, desc='Simulating', unit='sim s',
+                              disabled=args.no_progress) as steps:
+                while simulation.data.time < args.seconds:
+                    before = simulation.data.time
+                    advance()
+                    steps.update(min(simulation.data.time, args.seconds) - min(before, args.seconds))
         else:
             from mujoco import viewer as mj_viewer
 

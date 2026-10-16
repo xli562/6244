@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from expert import CONTROL_DT, Expert, apply_control, proprioception
 from fetch_assets import SOURCES
+from progress import add_progress_arguments, progress_bar
 from simulation import KitchenSimulation, ORIENTATIONS, SceneConfig
 
 
@@ -29,15 +30,22 @@ def collect(args) -> None:
                     mujoco_version=mujoco.__version__, asset_sources=SOURCES,
                     source_sha256={name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
                                    for name in ['simulation.py', 'expert.py']}, episodes=[])
-    for index in range(args.episodes):
+    trials = progress_bar(range(args.episodes), desc='Collect', unit='trial',
+                          disabled=getattr(args, 'no_progress', False))
+    for index in trials:
         seed = args.seed_start + index if args.randomization != 'none' else args.seed_start
         config = SceneConfig.randomized(seed) if args.randomization == 'scene' else SceneConfig()
         orientation = ORIENTATIONS[index % 3] if args.randomization != 'none' else 'upright'
         sim = KitchenSimulation(config, seed, orientation)
         frames = dict(rgb=[], depth=[], proprioception=[], actions=[], stage=[])
+        last_stage = None
 
         def record(simulation, action, stage):
             """Record only camera observations, robot state, and expert actuator labels."""
+            nonlocal last_stage
+            if not trials.disable and stage != last_stage:
+                trials.set_postfix_str(f'{seed} {stage.replace("_", " ")}')
+                last_stage = stage
             observation = simulation.observe(args.width, args.height)
             frames['rgb'].append(observation['rgb'])
             frames['depth'].append(observation['depth'].astype(np.float16))
@@ -59,8 +67,10 @@ def collect(args) -> None:
                     np.savez_compressed(stream, **arrays)
             manifest['episodes'].append(entry)
             manifest_path.write_text(json.dumps(manifest, indent=2))
-            print(f"{index + 1}/{args.episodes}: {orientation}, {config.handle}, "
-                  f"success={report['success']}, failure={report['failure']}", flush=True)
+            trials.set_postfix(result='success' if report['success'] else 'failed', refresh=False)
+            if getattr(args, 'verbose', False):
+                trials.write(f"{index + 1}/{args.episodes}: {orientation}, {config.handle}, "
+                             f"success={report['success']}, failure={report['failure']}")
         finally:
             sim.close()
     successes = sum(entry['file'] is not None for entry in manifest['episodes'])
@@ -98,7 +108,8 @@ class Policy(nn.Module):
 
 class Demonstrations(Dataset):
     def __init__(self, paths, horizon, history_length:int=10, action_mean=None,
-                 action_space:str='absolute'):
+                 action_space:str='absolute', show_progress:bool=False,
+                 description:str='Loading trajectories'):
         """Load trajectories and index causal robot histories with future action labels."""
         self.episodes = []
         self.indices = []
@@ -106,7 +117,8 @@ class Demonstrations(Dataset):
         self.history_length = history_length
         self.action_mean = np.zeros(7) if action_mean is None else np.asarray(action_mean)
         self.action_space = action_space
-        for path in paths:
+        for path in progress_bar(paths, desc=description, unit='episode',
+                                 disabled=not show_progress, leave=False):
             with np.load(path, allow_pickle=False) as source:
                 # Explicit allowlist prevents diagnostic metadata becoming observations.
                 episode = {key: source[key] for key in
@@ -166,10 +178,13 @@ def train(args) -> None:
     if not episodes:
         raise ValueError('At least one successful demonstration episode is required.')
     training_entries, validation_entries = split_episodes(episodes, args.seed)
+    no_progress = getattr(args, 'no_progress', False)
     training = Demonstrations([args.data / entry['file'] for entry in training_entries],
-                              args.horizon, action_space=args.action_space)
+                              args.horizon, action_space=args.action_space,
+                              show_progress=not no_progress, description='Load training')
     validation = Demonstrations([args.data / entry['file'] for entry in validation_entries],
-                                args.horizon, action_space=args.action_space)
+                                args.horizon, action_space=args.action_space,
+                                show_progress=not no_progress, description='Load validation')
     action_mean = np.concatenate([episode['actions'][:, :7] for episode in training.episodes]).mean(0)
     training.action_mean = validation.action_mean = action_mean
     robot = np.concatenate([episode['proprioception'] for episode in training.episodes])
@@ -182,7 +197,9 @@ def train(args) -> None:
     validation_loader = DataLoader(validation, batch_size=args.batch_size) if validation_entries else None
     history, best = [], float('inf')
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    for epoch in range(args.epochs):
+    print(f'Training on {device}: {len(training_entries)} training / {len(validation_entries)} validation episodes', flush=True)
+    epochs = progress_bar(range(args.epochs), desc='Epochs', unit='epoch', disabled=no_progress)
+    for epoch in epochs:
         losses = []
         loaders = [(training_loader, True)]
         if validation_loader is not None:
@@ -190,20 +207,24 @@ def train(args) -> None:
         for loader, update in loaders:
             model.train(update)
             total, count = 0., 0
-            for image, proprio, target in loader:
-                image, proprio, target = image.to(device), proprio.to(device), target.to(device)
-                with torch.set_grad_enabled(update):
-                    prediction = model(image, proprio)
-                    loss = nn.functional.mse_loss(prediction[:, :, :7], target[:, :, :7])
-                    loss += .1 * nn.functional.binary_cross_entropy_with_logits(
-                        prediction[:, :, 7], target[:, :, 7])
-                    if update:
-                        optimizer.zero_grad()
-                        loss.backward()
-                        nn.utils.clip_grad_norm_(model.parameters(), 5)
-                        optimizer.step()
-                total += float(loss.detach()) * len(image)
-                count += len(image)
+            phase = 'Train' if update else 'Validate'
+            with progress_bar(loader, desc=f'{phase} {epoch + 1}/{args.epochs}', unit='batch',
+                              disabled=no_progress, leave=False, position=1) as batches:
+                for image, proprio, target in batches:
+                    image, proprio, target = image.to(device), proprio.to(device), target.to(device)
+                    with torch.set_grad_enabled(update):
+                        prediction = model(image, proprio)
+                        loss = nn.functional.mse_loss(prediction[:, :, :7], target[:, :, :7])
+                        loss += .1 * nn.functional.binary_cross_entropy_with_logits(
+                            prediction[:, :, 7], target[:, :, 7])
+                        if update:
+                            optimizer.zero_grad()
+                            loss.backward()
+                            nn.utils.clip_grad_norm_(model.parameters(), 5)
+                            optimizer.step()
+                    total += float(loss.detach()) * len(image)
+                    count += len(image)
+                    batches.set_postfix(loss=f'{total / count:.4f}', refresh=False)
             losses.append(total / count)
         validation_loss = losses[1] if validation_loader is not None else None
         history.append(dict(epoch=epoch + 1, train_loss=losses[0], validation_loss=validation_loss))
@@ -221,10 +242,10 @@ def train(args) -> None:
             temporary = args.output.with_suffix(args.output.suffix + '.tmp')
             torch.save(checkpoint, temporary)
             temporary.replace(args.output)
-        if (epoch + 1) % 5 == 0 or epoch == 0:
-            validation_label = (f'{validation_loss:.5f}' if validation_loss is not None
-                                else 'unavailable (one configuration)')
-            print(f'Epoch {epoch + 1}: train={losses[0]:.5f}, validation={validation_label}', flush=True)
+        epochs.set_postfix(train=f'{losses[0]:.4f}',
+                           val=f'{validation_loss:.4f}' if validation_loss is not None else 'n/a', refresh=False)
+        if getattr(args, 'verbose', False):
+            epochs.write(json.dumps(history[-1]))
     args.output.with_suffix('.history.json').write_text(json.dumps(history, indent=2))
     print(f'Saved best checkpoint to {args.output} ({device})')
 
@@ -249,7 +270,9 @@ def evaluate(args) -> None:
                    seed_overlap=sorted(used_seeds & requested), episodes=reports, successes=0, trials=0,
                    control_dt=CONTROL_DT, execute=args.execute, seconds=args.seconds,
                    action_space=checkpoint.get('action_space', 'delta'))
-    for index in range(args.episodes):
+    trials = progress_bar(range(args.episodes), desc='Eval', unit='trial',
+                          disabled=getattr(args, 'no_progress', False))
+    for index in trials:
         seed = args.seed_start + index
         config = SceneConfig.randomized(seed) if args.randomization == 'scene' else SceneConfig()
         orientation = ORIENTATIONS[index % 3]
@@ -257,9 +280,12 @@ def evaluate(args) -> None:
         robot_history = deque([proprioception(sim)] * model.history_length, maxlen=model.history_length)
         progress = dict(drawer_opened=False, cup_lifted=False, cup_placed=False, drawer_closed=False)
         failure = 'timeout'
-        frames, next_frame, maximum_opening = [], 0., 0.
+        frames, next_frame, maximum_opening, next_progress = [], 0., 0., 0.
         try:
             while sim.data.time < args.seconds:
+                if not trials.disable and sim.data.time >= next_progress:
+                    trials.set_postfix_str(f'{seed} {sim.data.time:.1f}/{args.seconds:g} sim s | {summary["successes"]} ok')
+                    next_progress = sim.data.time + 5
                 height, width = checkpoint['image_shape']
                 observation = sim.observe(width, height)
                 if getattr(args, 'video', False) and sim.data.time >= next_frame:
@@ -313,7 +339,9 @@ def evaluate(args) -> None:
             reports.append(report)
             summary.update(successes=sum(item['success'] for item in reports), trials=len(reports))
             args.output.write_text(json.dumps(summary, indent=2))
-            print(json.dumps(report), flush=True)
+            trials.set_postfix(ok=f"{summary['successes']}/{summary['trials']}", refresh=False)
+            if getattr(args, 'verbose', False):
+                trials.write(json.dumps(report))
         finally:
             sim.close()
     print(f"Policy success: {summary['successes']}/{summary['trials']}; report: {args.output}")
@@ -351,6 +379,8 @@ def run() -> None:
     evaluator.add_argument('--allow-training-seeds', action='store_true')
     evaluator.add_argument('--video', action='store_true')
     evaluator.add_argument('--output', type=Path, required=True)
+    for command in [collector, trainer, evaluator]:
+        add_progress_arguments(command)
     args = parser.parse_args()
     for name in ['episodes', 'width', 'height', 'epochs', 'horizon', 'batch_size', 'execute', 'seconds', 'lr']:
         if hasattr(args, name) and (not np.isfinite(getattr(args, name)) or getattr(args, name) <= 0):

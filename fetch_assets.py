@@ -1,10 +1,12 @@
 """Download only the upstream models used by simulation.py."""
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 import urllib.request
 import xml.etree.ElementTree as ET
+
+from progress import progress_bar
 
 
 ASSET_DIR = Path(__file__).resolve().parent / 'assets' / 'vendor'
@@ -38,30 +40,35 @@ def download(source:str, filename:str, force:bool=False,
     temporary = target.with_suffix(target.suffix + '.part')
     temporary.write_bytes(content)
     temporary.replace(target)
-    print(f'Downloaded {target.relative_to(ASSET_DIR)}', flush=True)
     return target
 
 
-def fetch_assets(force:bool=False) -> None:
+def fetch_assets(force:bool=False, no_progress:bool=False) -> None:
     """Download the robot, drawer template, mug, and their license files."""
-    panda = download('panda', 'panda.xml', force)
-    meshes = {mesh.attrib['file'] for mesh in ET.parse(panda).iter('mesh')}
-    jobs = [('panda', f'assets/{mesh}', False) for mesh in sorted(meshes)]
-    jobs += [('panda', name, False) for name in ['LICENSE', 'README.md']]
-    jobs += [('drawer', 'drawer.xml', False), ('drawer', 'LICENSE', True)]
-    jobs += [('cup', name, False) for name in
-             ['libero_mug.xml', 'libero_mug.obj', 'libero_mug.png']]
-    jobs += [('cup', 'LICENSE', True)]
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        futures = [pool.submit(download, source, name, force, root)
-                   for source, name, root in jobs]
-        for future in futures:
-            future.result()
+    with progress_bar(desc='Assets', unit='file', disabled=no_progress) as files:
+        panda = download('panda', 'panda.xml', force)
+        files.update(1)
+        meshes = {mesh.attrib['file'] for mesh in ET.parse(panda).iter('mesh')}
+        jobs = [('panda', f'assets/{mesh}', False) for mesh in sorted(meshes)]
+        jobs += [('panda', name, False) for name in ['LICENSE', 'README.md']]
+        jobs += [('drawer', 'drawer.xml', False), ('drawer', 'LICENSE', True)]
+        jobs += [('cup', name, False) for name in
+                 ['libero_mug.xml', 'libero_mug.obj', 'libero_mug.png']]
+        jobs += [('cup', 'LICENSE', True)]
+        files.total = len(jobs) + 1
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futures = [pool.submit(download, source, name, force, root)
+                       for source, name, root in jobs]
+            for future in as_completed(futures):
+                path = future.result()
+                files.set_postfix_str(str(path.relative_to(ASSET_DIR)), refresh=False)
+                files.update(1)
     print(f'Assets ready: {ASSET_DIR}')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--force', action='store_true', help='Replace cached files.')
+    parser.add_argument('--no-progress', action='store_true', help='Disable terminal progress bars.')
     args = parser.parse_args()
-    fetch_assets(args.force)
+    fetch_assets(args.force, args.no_progress)

@@ -9,6 +9,7 @@ from typing import Callable
 import mujoco
 import numpy as np
 
+from progress import add_progress_arguments, progress_bar
 from simulation import KitchenSimulation, ORIENTATIONS, SceneConfig
 
 
@@ -232,11 +233,13 @@ def run() -> None:
     parser.add_argument('--handle', choices=['bar', 'knob', 'loop'])
     parser.add_argument('--output', type=Path)
     parser.add_argument('--video', action='store_true')
+    add_progress_arguments(parser)
     args = parser.parse_args()
     if args.episodes < 1:
         parser.error('--episodes must be positive.')
     reports = []
-    for index in range(args.episodes):
+    trials = progress_bar(range(args.episodes), desc='Expert', unit='trial', disabled=args.no_progress)
+    for index in trials:
         seed = args.seed + index
         config = SceneConfig.randomized(seed) if args.randomize_scene else SceneConfig()
         if args.handle:
@@ -244,11 +247,14 @@ def run() -> None:
         orientation = (ORIENTATIONS[index % 3] if args.episodes > 1 and args.orientation == 'random'
                        else args.orientation)
         sim = KitchenSimulation(config, seed, orientation)
-        frames, count = [], 0
+        frames, count, last_stage = [], 0, None
 
         def capture(simulation, control, stage):
             """Record a 2 Hz preview from the same fixed camera used for observations."""
-            nonlocal count
+            nonlocal count, last_stage
+            if not trials.disable and stage != last_stage:
+                trials.set_postfix_str(f'{seed} {stage.replace("_", " ")}')
+                last_stage = stage
             if args.output and args.video and count % 5 == 0:
                 from PIL import Image
                 frames.append(Image.fromarray(simulation.observe(320, 240)['rgb']))
@@ -266,7 +272,9 @@ def run() -> None:
                     frames[0].save(output / 'rollout.gif', save_all=True,
                                    append_images=frames[1:], duration=100, loop=0)
             reports.append(report)
-            print(json.dumps(report), flush=True)
+            trials.set_postfix(ok=f"{sum(item['success'] for item in reports)}/{len(reports)}", refresh=False)
+            if args.verbose:
+                trials.write(json.dumps(report))
         finally:
             sim.close()
     summary = dict(policy='state_based_expert', episodes=reports,
@@ -274,6 +282,8 @@ def run() -> None:
     if args.output and args.episodes > 1:
         (args.output / 'benchmark.json').write_text(json.dumps(summary, indent=2))
     print(f"Expert success: {summary['successes']}/{summary['trials']}")
+    if args.output:
+        print(f'Reports saved to {args.output}')
 
 
 if __name__ == '__main__':

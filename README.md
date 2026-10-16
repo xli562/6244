@@ -9,6 +9,105 @@ scene, `expert.py` supplies robot control and the state-based teacher, and
 `fetch_assets.py` downloads assets. `learning.py` retains the earlier joint-action
 imitation baseline.
 
+## Verify the saved results
+
+Run these commands from this repository's directory. This workspace already has
+the assets, trained checkpoints, and a prepared Python environment:
+
+```bash
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+export MUJOCO_GL=egl
+```
+
+On this shared server, choose an available GPU using `nvidia-smi`. The recorded
+runs used physical GPU 3. Set both indices to your chosen GPU; a single-GPU machine
+normally uses 0:
+
+```bash
+nvidia-smi
+export CUDA_VISIBLE_DEVICES=3
+export MUJOCO_EGL_DEVICE_ID=3
+python -c "import torch, mujoco; print('PyTorch:', torch.__version__, 'MuJoCo:', mujoco.__version__); print('CUDA available:', torch.cuda.is_available())"
+```
+
+For the CUDA commands below, the final line should print `CUDA available: True`.
+The recorded environment used Python 3.12, MuJoCo 3.15.0, NumPy 2.5.3, and PyTorch
+2.7.1 + CUDA 11.8 on an A100. The dependency files allow version ranges; replay
+with the recorded versions/hardware for the closest numerical agreement.
+`--device cpu` is also supported, but numerical differences can affect outcomes.
+
+First, replay three test scenes and save videos:
+
+```bash
+python waypoints.py evaluate --checkpoint outputs/waypoint_scene_v2.pt \
+    --episodes 3 --seed-start 10000 --randomization scene --device cuda --video \
+    --output outputs/my_replay/scene.json
+```
+
+This runs the robot automatically, headlessly. Open
+`outputs/my_replay/scene_seed10000.gif` in the IDE or an image viewer to watch the
+first trial; the other two GIFs show inverted and sideways starts. GIF playback is
+five times simulation speed. `scene.json` contains the freshly measured outcomes.
+`python simulation.py` opens a separate interactive scene viewer with manual joint
+controls; it does not run the learned policy.
+
+To independently replay the full reported comparison, evaluate all three saved
+checkpoints on the same 30 test scenes. These commands write new reports and keep
+the original reports in `outputs/generalization_v2/`:
+
+```bash
+for variation in none cup scene; do
+    python waypoints.py evaluate \
+        --checkpoint "outputs/waypoint_${variation}_v2.pt" \
+        --episodes 30 --seed-start 10000 --randomization scene --device cuda \
+        --output "outputs/my_verification/${variation}.json"
+done
+
+python waypoints.py compare \
+    --original-report outputs/my_verification/none.json \
+    --cup-report outputs/my_verification/cup.json \
+    --scene-report outputs/my_verification/scene.json \
+    --output outputs/my_verification/summary.json
+```
+
+The recorded counts are `none: 0/30`, `cup: 7/30`, and `scene: 25/30`.
+The comparison prints recomputed counts, checks matched test configurations and
+training settings, and writes confidence intervals and orientation/handle
+breakdowns. Every evaluation report includes per-seed success, failure reason,
+ordered task progress, final physical status, configuration, and source hashes.
+A success requires opening, lifting, placement, and closure in order, a stable cup
+fully contained on the drawer floor, closure within 5 mm, and no robot–cup contact.
+Changing log/progress code changes source hashes; compare actual configurations
+and per-seed outcomes as well as totals when checking a replay.
+
+Run the integration checks independently:
+
+```bash
+MUJOCO_GL=egl python -m unittest -v
+```
+
+The current suite contains 20 tests. Replaying these checkpoints verifies the
+saved-model results; training new models independently is described under
+[Reproduce training](#reproduce-training). Checkpoints, datasets, and original
+result files are ignored by Git, so a fresh clone needs training or a copy of the
+saved artifacts before these replay commands can work.
+
+## Progress and logs
+
+Asset fetching, headless simulation, expert execution, collection, data loading,
+training, and evaluation show terminal progress bars with counts, elapsed time,
+rate, and estimated time remaining. Evaluation also shows the current robot
+stage; training shows epoch/batch progress and running loss. Asset progress counts
+completed files, including cache hits. GIF encoding is included in trial runtime.
+
+Bars use standard error and hide automatically when it is not a terminal. Add
+`--no-progress` to disable them explicitly. For collection, training, and
+evaluation, add `--verbose` to print detailed per-trial or per-epoch information
+to standard output. For example, append `--no-progress --verbose` when capturing
+a training log. Full JSON reports and training histories are still saved without
+verbose output.
+
 ## Run
 
 Use the existing project Conda environment, or a Python 3.10+ environment:
@@ -40,7 +139,7 @@ MUJOCO_GL=egl python simulation.py --headless --seed 7 --randomize-scene \
 
 `--drawer-demo` applies an external force to cycle the drawer over six seconds.
 It is an articulation diagnostic. Use `expert.py` for execution through the arm
-and gripper, and `learning.py` for RGBD imitation learning.
+and gripper, and `waypoints.py` for the working RGBD imitation policy.
 MuJoCo runs the physics on the CPU; EGL supports headless rendering on the A100.
 
 Each output directory contains:
@@ -197,6 +296,42 @@ MUJOCO_GL=egl python waypoints.py evaluate --checkpoint outputs/my_waypoint_poli
     --episodes 30 --seed-start 20000 --randomization scene \
     --output outputs/my_waypoint_evaluation.json
 ```
+
+## Reproduce training
+
+To repeat all three training conditions, use new dataset/output directories and
+the original settings below. This takes longer than replaying the saved models.
+Each model receives 768 snapshots and 3,200 optimizer steps. The `none` condition
+repeats one unique configuration; `cup` and `scene` use distinct configurations.
+The learned policy uses training seed 0; collection uses scene seeds 3000–3767
+(only 3000 for `none`). Evaluation uses seeds 10000–10029 for reproduction:
+
+```bash
+for variation in none cup scene; do
+    python waypoints.py collect --episodes 768 --seed-start 3000 \
+        --randomization "$variation" \
+        --output "outputs/my_retraining/${variation}_data"
+    python waypoints.py train --data "outputs/my_retraining/${variation}_data" \
+        --seed 0 --epochs 80 --steps-per-epoch 40 --batch-size 16 --lr 0.0003 \
+        --device cuda --output "outputs/my_retraining/${variation}.pt"
+    python waypoints.py evaluate --checkpoint "outputs/my_retraining/${variation}.pt" \
+        --episodes 30 --seed-start 10000 --randomization scene --device cuda \
+        --output "outputs/my_retraining/${variation}.json"
+done
+
+python waypoints.py compare \
+    --original-report outputs/my_retraining/none.json \
+    --cup-report outputs/my_retraining/cup.json \
+    --scene-report outputs/my_retraining/scene.json \
+    --output outputs/my_retraining/summary.json
+```
+
+The collection command refuses to overwrite an existing dataset. Choose another
+directory if repeating this workflow. New training runs can differ numerically
+across software/hardware; they are not guaranteed to recreate identical weights
+or the exact saved success counts. For a new generalization experiment, choose a
+fresh evaluation seed range, such as `--seed-start 20000`, and use the same range
+for every condition.
 
 Each training example is a physically settled scene with expert **waypoint labels**,
 rather than a full trajectory. NPZ files contain RGBD, calibration, training-only

@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader, Dataset, RandomSampler
 from expert import ArmController, DOWN, FRONT, ExpertFailure
 from fetch_assets import SOURCES
 from learning import split_episodes
+from progress import add_progress_arguments, progress_bar
 from simulation import KitchenSimulation, ORIENTATIONS, SceneConfig
 
 
@@ -81,8 +82,10 @@ def collect(args) -> None:
                                    for name in ['simulation.py', 'expert.py', 'waypoints.py']},
                     mujoco_version=mujoco.__version__, episodes=[])
     sim = None
+    scenes = progress_bar(range(args.episodes), desc='Collect', unit='scene',
+                          disabled=getattr(args, 'no_progress', False))
     try:
-        for index in range(args.episodes):
+        for index in scenes:
             seed = args.seed_start + index if args.randomization != 'none' else args.seed_start
             orientation = ORIENTATIONS[index % 3] if args.randomization != 'none' else 'upright'
             if sim is None or args.randomization == 'scene':
@@ -100,8 +103,11 @@ def collect(args) -> None:
                                              config=asdict(config)))
             if (index + 1) % 25 == 0 or index == 0:
                 manifest_path.write_text(json.dumps(manifest, indent=2))
-                print(f'{index + 1}/{args.episodes} waypoint demonstrations', flush=True)
+            scenes.set_postfix_str(f'{seed} {orientation}, {config.handle}', refresh=False)
+            if getattr(args, 'verbose', False):
+                scenes.write(f'{index + 1}/{args.episodes}: seed={seed}, {orientation}, {config.handle}')
         manifest_path.write_text(json.dumps(manifest, indent=2))
+        print(f'Saved {args.episodes} waypoint demonstrations to {args.output}', flush=True)
     finally:
         if sim is not None:
             sim.close()
@@ -158,10 +164,12 @@ def prepare(observation:dict) -> tuple[np.ndarray, np.ndarray]:
 
 
 class WaypointDemonstrations(Dataset):
-    def __init__(self, directory:Path, entries:list[dict]):
+    def __init__(self, directory:Path, entries:list[dict], show_progress:bool=False,
+                 description:str='Loading waypoints'):
         """Load RGBD and expert waypoint supervision; metadata cannot become model inputs."""
         self.examples = []
-        for entry in entries:
+        for entry in progress_bar(entries, desc=description, unit='scene',
+                                  disabled=not show_progress, leave=False):
             with np.load(directory / entry['file'], allow_pickle=False) as source:
                 image, xyz = prepare(source)
                 self.examples.append((image, xyz, source['labels'], source['target']))
@@ -181,11 +189,12 @@ class WaypointMemory:
         self.targets = targets
 
     @classmethod
-    def from_demonstrations(cls, dataset:WaypointDemonstrations, device:str):
+    def from_demonstrations(cls, dataset:WaypointDemonstrations, device:str, show_progress:bool=False):
         """Build a nonparametric imitation model from the training partition alone."""
         points, targets = [], []
         seen = set()
-        for image, xyz, labels, target in dataset.examples:
+        for image, xyz, labels, target in progress_bar(dataset.examples, desc='Build memory',
+                unit='scene', disabled=not show_progress, leave=False):
             if target.tobytes() in seen:
                 continue
             seen.add(target.tobytes())
@@ -290,10 +299,12 @@ def train(args) -> None:
     torch.set_num_threads(4)
     manifest = json.loads((args.data / 'manifest.json').read_text())
     training, validation = split_episodes(manifest['episodes'], args.seed)
-    datasets = [WaypointDemonstrations(args.data, training), WaypointDemonstrations(args.data, validation)]
+    no_progress = getattr(args, 'no_progress', False)
+    datasets = [WaypointDemonstrations(args.data, entries, not no_progress, f'Load {name}')
+                for name, entries in [('training', training), ('validation', validation)]]
     device = ('cuda' if torch.cuda.is_available() else 'cpu') if args.device == 'auto' else args.device
     model = WaypointPolicy().to(device)
-    memory = WaypointMemory.from_demonstrations(datasets[0], device).state()
+    memory = WaypointMemory.from_demonstrations(datasets[0], device, not no_progress).state()
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-5)
     training_sampler = (RandomSampler(datasets[0], replacement=True,
                                      num_samples=args.steps_per_epoch * args.batch_size)
@@ -305,26 +316,32 @@ def train(args) -> None:
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs, eta_min=args.lr / 10)
     history, best = [], float('inf')
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    for epoch in range(args.epochs):
+    print(f'Training on {device}: {len(training)} training / {len(validation)} validation scenes', flush=True)
+    epochs = progress_bar(range(args.epochs), desc='Epochs', unit='epoch', disabled=no_progress)
+    for epoch in epochs:
         losses, errors = [], []
         for index, loader in enumerate(loaders):
             model.train(index == 0)
             total, metric, count = 0., np.zeros(3), 0
-            for image, xyz, labels, target in loader:
-                image, xyz, labels, target = [array.to(device) for array in [image, xyz, labels, target]]
-                with torch.set_grad_enabled(index == 0):
-                    dense = model(image)
-                    loss = loss_function(dense, xyz, labels, target)
-                    if index == 0:
-                        optimizer.zero_grad()
-                        loss.backward()
-                        nn.utils.clip_grad_norm_(model.parameters(), 5)
-                        optimizer.step()
-                    prediction = model.decode(dense, xyz)
-                    distances = torch.linalg.vector_norm((prediction[:, :9] - target[:, :9]).reshape(-1, 3, 3), dim=2)
-                    metric += distances.detach().sum(0).cpu().numpy()
-                count += len(image)
-                total += float(loss.detach()) * len(image)
+            phase = 'Train' if index == 0 else 'Validate'
+            with progress_bar(loader, desc=f'{phase} {epoch + 1}/{args.epochs}', unit='batch',
+                              disabled=no_progress, leave=False, position=1) as batches:
+                for image, xyz, labels, target in batches:
+                    image, xyz, labels, target = [array.to(device) for array in [image, xyz, labels, target]]
+                    with torch.set_grad_enabled(index == 0):
+                        dense = model(image)
+                        loss = loss_function(dense, xyz, labels, target)
+                        if index == 0:
+                            optimizer.zero_grad()
+                            loss.backward()
+                            nn.utils.clip_grad_norm_(model.parameters(), 5)
+                            optimizer.step()
+                        prediction = model.decode(dense, xyz)
+                        distances = torch.linalg.vector_norm((prediction[:, :9] - target[:, :9]).reshape(-1, 3, 3), dim=2)
+                        metric += distances.detach().sum(0).cpu().numpy()
+                    count += len(image)
+                    total += float(loss.detach()) * len(image)
+                    batches.set_postfix(loss=f'{total / count:.4f}', refresh=False)
             losses.append(total / count)
             errors.append((metric / count * 1000).tolist())
         history.append(dict(epoch=epoch + 1, train_loss=losses[0],
@@ -344,10 +361,13 @@ def train(args) -> None:
             temporary = args.output.with_suffix('.tmp')
             torch.save(checkpoint, temporary)
             temporary.replace(args.output)
-        if epoch == 0 or (epoch + 1) % 5 == 0:
-            print(json.dumps(history[-1]), flush=True)
+        epochs.set_postfix(train=f'{losses[0]:.4f}', val=f'{losses[-1]:.4f}' if validation else 'n/a',
+                           refresh=False)
+        if getattr(args, 'verbose', False):
+            epochs.write(json.dumps(history[-1]))
         scheduler.step()
     args.output.with_suffix('.history.json').write_text(json.dumps(history, indent=2))
+    print(f'Saved best checkpoint to {args.output}; history: {args.output.with_suffix(".history.json")}', flush=True)
 
 
 def execute(controller:ArmController, target:np.ndarray, height:float, perceive=None) -> None:
@@ -445,16 +465,22 @@ def evaluate(args) -> None:
                                   for name in ['simulation.py', 'expert.py', 'waypoints.py']},
                    successes=0, trials=0, episodes=[])
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    for index in range(args.episodes):
+    trials = progress_bar(range(args.episodes), desc='Eval', unit='trial',
+                          disabled=getattr(args, 'no_progress', False))
+    for index in trials:
         seed, orientation = args.seed_start + index, ORIENTATIONS[index % 3]
+        trials.set_postfix_str(f'{seed} reset | {summary["successes"]} ok')
         config = SceneConfig.randomized(seed) if args.randomization == 'scene' else SceneConfig()
         sim = KitchenSimulation(config, seed, orientation)
         progress = dict(drawer_opened=False, cup_lifted=False, cup_placed=False, drawer_closed=False)
-        frames, count, max_opening = [], 0, 0.
+        frames, count, max_opening, last_stage = [], 0, 0., None
 
         def measure(simulation, control, stage):
             """Measure task order and optionally capture video, without feeding metrics to control."""
-            nonlocal count, max_opening
+            nonlocal count, max_opening, last_stage
+            if not trials.disable and stage != last_stage:
+                trials.set_postfix_str(f'{seed} {stage.replace("_", " ")} | {summary["successes"]} ok')
+                last_stage = stage
             status = simulation.status()
             max_opening = max(max_opening, status['drawer_opening'])
             progress['drawer_opened'] |= status['drawer_opening'] > .28
@@ -499,6 +525,7 @@ def evaluate(args) -> None:
                           stage=controller.stage, predicted_waypoints=target.tolist() if target is not None else None,
                           estimated_counter_height=surface, max_drawer_opening=max_opening)
             if frames:
+                trials.set_postfix_str(f'{seed} save video | {summary["successes"]} ok')
                 video = args.output.with_name(f'{args.output.stem}_seed{seed}.gif')
                 frames[0].save(video, save_all=True, append_images=frames[1:], duration=100, loop=0)
                 report['video'] = str(video)
@@ -506,10 +533,13 @@ def evaluate(args) -> None:
             summary.update(trials=len(summary['episodes']),
                            successes=sum(item['success'] for item in summary['episodes']))
             args.output.write_text(json.dumps(summary, indent=2))
-            print(json.dumps(report), flush=True)
+            trials.set_postfix_str(f"{summary['successes']} ok, {summary['trials'] - summary['successes']} failed",
+                                   refresh=False)
+            if getattr(args, 'verbose', False):
+                trials.write(json.dumps(report))
         finally:
             sim.close()
-    print(f"Waypoint policy success: {summary['successes']}/{summary['trials']}", flush=True)
+    print(f"Waypoint policy success: {summary['successes']}/{summary['trials']}; report: {args.output}", flush=True)
 
 
 def compare(args) -> None:
@@ -593,6 +623,8 @@ def run() -> None:
     comparison.add_argument('--cup-report', type=Path, required=True)
     comparison.add_argument('--scene-report', type=Path, required=True)
     comparison.add_argument('--output', type=Path, required=True)
+    for command in [collector, trainer, evaluator]:
+        add_progress_arguments(command)
     args = parser.parse_args()
     for name in ['episodes', 'width', 'height', 'epochs', 'batch_size', 'steps_per_epoch', 'lr']:
         value = getattr(args, name, None)
