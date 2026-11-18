@@ -222,3 +222,6 @@ __marimo__/
 # Simulation
 third_party/
 sim/outputs/
+
+# agent development runs (logs, feedback, final policies)
+runs/

@@ -1,0 +1,50 @@
+{
+  "name": "real_ikea_metod_60",
+  "description": "Reference 'real' scene assembled from published product dimensions. No physical scene was captured; this file stands in for the capture step.",
+  "sources": {
+    "cabinet": {"product": "IKEA METOD base cabinet frame 60x60x80 cm", "url": "https://www.ikea.com/fi/en/p/metod-base-cabinet-frame-white-50205626", "values": "600 x 600 x 800 mm, 18 mm panels, 80 mm legs"},
+    "drawer": {"product": "IKEA MAXIMERA drawer, low, 60x60 cm", "url": "https://www.ikea.com/nl/en/p/maximera-drawer-low-white-70319354", "values": "width 564 mm, depth 542 mm, side height 78 mm, max load 25 kg, full extension"},
+    "drawer_front": {"product": "IKEA VEDDINGE drawer front 60x20 cm", "url": "https://www.ikea.com/gb/en/p/veddinge-drawer-front-white-60205428/", "values": "597 x 197 mm, 16 mm thick"},
+    "worktop": {"product": "IKEA EKBACKEN worktop", "url": "https://www.ikea.com/cz/en/p/ekbacken-worktop-plywood-effect-laminate-70609042/", "values": "depth 635 mm, thickness 28 mm; top surface at 80 + 800 + 28 = 908 mm above the floor"},
+    "handle": {"product": "IKEA BAGGANAS handle 143 mm", "url": "https://www.ikea.com/se/en/p/bagganaes-handle-stainless-steel-70338418/", "values": "length 143 mm, bar width 9 mm, projection 31 mm"},
+    "cup": {"product": "Loveramics Egg espresso cup 80 ml", "url": "https://www.crema.fi/en/products/loveramics/egg-espresso-cup-nature-inspired-colours/12759", "values": "diameter 65 mm, height 55 mm"},
+    "drawer_pull_force": {"product": "Custom Service Hardware full-extension soft-close slide (proxy; a different slide type)", "url": "https://zoro.com/static/cms/enhanced_pdf/Custom%20Service%20Hardware%20LLC_39.1145xxSpecxx3c8b1a.pdf", "values": "pull force 2.4-3.4 kg per drawer"},
+    "friction": {"product": "Engineering Toolbox friction table (proxy materials)", "url": "https://engineeringtoolbox.com/friction-coefficients-d_778.html", "values": "wood on wood 0.25-0.5, brick on wood 0.6"}
+  },
+  "scene": {
+    "counter_front_x": 0.55,
+    "counter_depth": 0.635,
+    "counter_half_y": 0.45,
+    "counter_top_z": 0.30,
+    "top_thickness": 0.028,
+    "drawer_y": -0.10,
+    "drawer_depth": 0.542,
+    "drawer_half_width": 0.282,
+    "drawer_wall_height": 0.078,
+    "drawer_front_height": 0.197,
+    "drawer_panel": 0.016,
+    "drawer_wall": 0.008,
+    "drawer_max_open": 0.50,
+    "drawer_damping": 5.0,
+    "drawer_frictionloss": 2.0,
+    "handle_offset_x": -0.045,
+    "handle_z": [0.030, 0.173],
+    "cup_diameter": 0.065,
+    "cup_height": 0.055,
+    "cup_mass": 0.13,
+    "cup_friction": 1.0,
+    "cup_xy": [0.68, 0.30],
+    "cup_yaw": 0.0,
+    "drawer_open": 0.0
+  },
+  "deviations": [
+    "Robot frame: the Panda base is the origin and the counter top is at z = 0.30 m, i.e. the robot stands on a platform 0.608 m above the kitchen floor (908 mm worktop height).",
+    "Handle: the real handle is a horizontal bar with 31 mm projection. The skill API only allows top-down grasps, so the 143 mm bar is mounted vertically, 45 mm in front of the drawer front, and is 16 mm thick instead of 9 mm.",
+    "Drawer interior: modelled as 532 mm wide (564 mm minus 16 mm sides). IKEA does not publish the internal width; the Blum formula suggests about 489 mm.",
+    "Drawer travel: 0.50 m is an estimate for 'full extension' of a 542 mm drawer; no published figure.",
+    "Cup mass 0.13 kg is an estimate: only cup-plus-saucer mass (290 g) is published.",
+    "Cup shape: a scanned mug mesh (Google Scanned Objects) rescaled to the espresso cup's diameter and height.",
+    "Drawer friction and damping: no published opening force for this runner. frictionloss 2 N and damping 5 N s/m are placeholders, well below the 24-33 N of the proxy slide, so that the stiffened Panda gripper can pull the handle.",
+    "Gripper finger stiffness is 4x the Menagerie default (400 N/m) so that the grasp holds."
+  ]
+}
