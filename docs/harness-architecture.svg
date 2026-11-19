@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="785" viewBox="0 0 1440 785" role="img" aria-labelledby="title desc" xml:lang="en">
   <title id="title">Robot programming in simulation</title>
-  <desc id="desc">Codex or Claude writes a reusable Python policy before test selection. At run time the policy proposes an action. The harness checks the proposed item and target against the live scene. A tie triggers a reread of the original instruction and a second check. Only a unique match proceeds to the skill library. LIBERO returns measurements to the policy. A separate evaluator checks stable success.</desc>
+  <desc id="desc">Codex or Claude writes a reusable Python policy before test selection. At run time the policy proposes an action. The harness checks the proposed item and target against the live scene. The harness checks skill support. A blocked or missing proposal can trigger up to two retries in the frozen policy. Only a unique match proceeds to the skill library. LIBERO returns measurements to the policy. A separate evaluator checks stable success.</desc>
   <defs>
     <marker id="arrow" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
       <path d="M1 1 L9 5 L1 9" fill="none" stroke="#868e96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -27,7 +27,7 @@
   <g class="red">
     <path class="box" d="M46 142 Q26 142 26 163 L27 218 Q27 236 47 236 L300 235 Q321 235 321 215 L320 162 Q320 142 300 142 Z"/>
     <text class="ink node" x="173" y="181">Codex / Claude CLI</text>
-    <text class="ink small" x="173" y="209">One call per policy</text>
+    <text class="ink small" x="173" y="209">Compile the plan and retry code</text>
   </g>
   <path class="arrow" d="M174 238 V308"/>
   <text class="note" x="228" y="279">writes</text>
@@ -50,20 +50,22 @@
   <g class="blue">
     <path class="box" d="M491 250 Q474 250 474 268 L474 312 Q474 330 493 330 L838 329 Q856 329 856 311 L857 269 Q857 250 837 250 Z"/>
     <text class="ink node" x="665" y="284">Check the proposed roles</text>
-    <text class="ink small" x="665" y="311">Match against scene names and poses</text>
+    <text class="ink small" x="665" y="311">Check names, poses and skill support</text>
   </g>
   <path class="arrow" d="M858 292 H1072"/>
-  <text class="note" x="977" y="282">tie</text>
+  <text class="note" x="977" y="282">blocked</text>
+  <path class="arrow" d="M926 149 H1233 Q1243 149 1243 159 V200"/>
+  <text class="note" x="1082" y="136">Policy returned without an action</text>
   <g class="purple">
     <path class="box" d="M1098 204 Q1076 204 1076 225 L1077 312 Q1077 333 1100 333 L1387 332 Q1410 332 1410 311 L1409 226 Q1409 205 1387 205 Z"/>
-    <text class="ink node" x="1243" y="244">Reread the instruction</text>
-    <text class="ink small" x="1243" y="277">Locate the missing qualifier</text>
-    <text class="ink small" x="1243" y="305">Check labels or landmark distances</text>
+    <text class="ink node" x="1243" y="244">Replan with feedback</text>
+    <text class="ink small" x="1243" y="277">Read the original role phrase</text>
+    <text class="ink small" x="1243" y="305">Query compatible objects and retry</text>
   </g>
   <path class="arrow" d="M1074 231 H938 Q928 231 928 241 V255 Q928 265 918 265 H858"/>
-  <text class="note" x="996" y="218">new evidence</text>
+  <text class="note" x="996" y="218">new proposal</text>
   <path class="arrow" d="M1243 335 V408"/>
-  <text class="note" x="1292" y="377">still tied</text>
+  <text class="note" x="1292" y="377">still blocked</text>
   <g class="gray">
     <rect class="box" x="1089" y="413" width="308" height="62" rx="18"/>
     <text class="ink node" x="1243" y="451">Stop before moving</text>
