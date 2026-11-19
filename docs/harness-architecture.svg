@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="785" viewBox="0 0 1440 785" role="img" aria-labelledby="title desc" xml:lang="en">
+  <title id="title">Robot programming in simulation</title>
+  <desc id="desc">Codex or Claude writes a reusable Python policy before test selection. At run time the policy proposes an action. The harness checks the proposed item and target against the live scene. A tie triggers a reread of the original instruction and a second check. Only a unique match proceeds to the skill library. LIBERO returns measurements to the policy. A separate evaluator checks stable success.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#868e96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: "DejaVu Sans", Arial, sans-serif; text-anchor: middle; }
+      .head { font-size: 26px; font-weight: 700; }
+      .node { font-size: 23px; font-weight: 650; }
+      .small { font-size: 17px; font-weight: 500; }
+      .note { font-size: 16px; fill: #868e96; }
+      .red { color: #fa5252; } .blue { color: #319af0; } .green { color: #2f9e44; }
+      .purple { color: #9775fa; } .brown { color: #a18072; } .gray { color: #868e96; }
+      .box { stroke: currentColor; stroke-width: 3.8; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .ink { fill: currentColor; }
+      .arrow { fill: none; stroke: #868e96; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <!-- The canvas and every node interior are transparent. -->
+  <g class="gray ink head">
+    <text x="174" y="46">Policy authoring</text>
+    <text x="912" y="46">Simulation run</text>
+  </g>
+  <path d="M365 24 V753" fill="none" stroke="#868e96" stroke-width="2" stroke-dasharray="4 10" stroke-linecap="round"/>
+  <g class="red">
+    <path class="box" d="M46 142 Q26 142 26 163 L27 218 Q27 236 47 236 L300 235 Q321 235 321 215 L320 162 Q320 142 300 142 Z"/>
+    <text class="ink node" x="173" y="181">Codex / Claude CLI</text>
+    <text class="ink small" x="173" y="209">One call per policy</text>
+  </g>
+  <path class="arrow" d="M174 238 V308"/>
+  <text class="note" x="228" y="279">writes</text>
+  <g class="blue">
+    <path class="box" d="M48 312 Q27 312 27 333 L26 392 Q26 414 49 414 L300 413 Q320 413 321 392 L321 333 Q321 312 301 312 Z"/>
+    <text class="ink node" x="174" y="354">Frozen Python policy</text>
+    <text class="ink small" x="174" y="384">Reads the task and scene</text>
+  </g>
+  <path class="arrow" d="M323 357 H395 Q405 357 405 347 V183 Q405 173 415 173 H469"/>
+  <g class="blue">
+    <path class="box" d="M452 75 Q430 75 430 99 L431 483 Q431 508 455 508 L879 507 Q902 507 902 482 L901 100 Q901 76 878 76 Z"/>
+    <text class="ink head" x="666" y="114">Harness</text>
+  </g>
+  <g class="green">
+    <path class="box" d="M493 139 Q474 139 474 158 L474 195 Q474 212 493 212 L838 211 Q857 211 857 193 L856 157 Q856 139 837 139 Z"/>
+    <text class="ink node" x="665" y="169">Action IR</text>
+    <text class="ink small" x="665" y="195">Skill · item · target · constraints</text>
+  </g>
+  <path class="arrow" d="M665 214 V246"/>
+  <g class="blue">
+    <path class="box" d="M491 250 Q474 250 474 268 L474 312 Q474 330 493 330 L838 329 Q856 329 856 311 L857 269 Q857 250 837 250 Z"/>
+    <text class="ink node" x="665" y="284">Check the proposed roles</text>
+    <text class="ink small" x="665" y="311">Match against scene names and poses</text>
+  </g>
+  <path class="arrow" d="M858 292 H1072"/>
+  <text class="note" x="977" y="282">tie</text>
+  <g class="purple">
+    <path class="box" d="M1098 204 Q1076 204 1076 225 L1077 312 Q1077 333 1100 333 L1387 332 Q1410 332 1410 311 L1409 226 Q1409 205 1387 205 Z"/>
+    <text class="ink node" x="1243" y="244">Reread the instruction</text>
+    <text class="ink small" x="1243" y="277">Locate the missing qualifier</text>
+    <text class="ink small" x="1243" y="305">Check labels or landmark distances</text>
+  </g>
+  <path class="arrow" d="M1074 231 H938 Q928 231 928 241 V255 Q928 265 918 265 H858"/>
+  <text class="note" x="996" y="218">new evidence</text>
+  <path class="arrow" d="M1243 335 V408"/>
+  <text class="note" x="1292" y="377">still tied</text>
+  <g class="gray">
+    <rect class="box" x="1089" y="413" width="308" height="62" rx="18"/>
+    <text class="ink node" x="1243" y="451">Stop before moving</text>
+  </g>
+  <path class="arrow" d="M665 332 V396"/>
+  <text class="note" x="743" y="368">unique match</text>
+  <g class="purple">
+    <path class="box" d="M493 400 Q474 400 474 418 L475 461 Q475 478 494 478 L839 477 Q857 477 857 459 L856 419 Q856 400 837 400 Z"/>
+    <text class="ink node" x="665" y="432">Shared skill library</text>
+    <text class="ink small" x="665" y="459">Grasp and place · open / close · push</text>
+  </g>
+  <path class="arrow" d="M665 480 V561"/>
+  <text class="note" x="752" y="545">control actions</text>
+  <g class="brown">
+    <path class="box" d="M493 565 Q474 565 474 584 L474 635 Q474 654 494 654 L838 653 Q857 653 857 634 L856 585 Q856 565 837 565 Z"/>
+    <text class="ink node" x="665" y="602">LIBERO / MuJoCo</text>
+    <text class="ink small" x="665" y="631">Robot, objects and contact physics</text>
+  </g>
+  <path class="arrow" d="M472 606 H190 Q174 606 174 590 V417"/>
+  <text class="note" x="220" y="631">observations + action receipts</text>
+  <path class="arrow" d="M859 607 H1071"/>
+  <text class="note" x="967" y="594">final state</text>
+  <g class="green">
+    <path class="box" d="M1098 565 Q1076 565 1076 585 L1077 634 Q1077 654 1099 654 L1387 653 Q1410 653 1410 633 L1409 585 Q1409 565 1387 565 Z"/>
+    <text class="ink node" x="1243" y="602">Independent evaluator</text>
+    <text class="ink small" x="1243" y="631">Release, raise and wait 40 steps</text>
+  </g>
+  <text class="note" x="174" y="730">Before test tasks are drawn</text>
+  <text class="note" x="912" y="730">The policy runs on each new placement without another model call.</text>
+</svg>
