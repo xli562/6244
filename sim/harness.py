@@ -30,17 +30,12 @@ from pathlib import Path
 import episode
 import skills
 import variants
+from repair_cli import AGENTS
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS_DIR = ROOT / "runs"
 WORKSPACES = ROOT.parent / "agent_runs"  # outside the repository on purpose
 
-AGENTS = {
-    "codex": {"model": "gpt-6-astra", "effort": "medium",
-              "glob": "~/.vscode-server/extensions/openai.chatgpt-*/bin/linux-x86_64/codex"},
-    "claude": {"model": "claude-opus-5-5", "effort": "high",
-               "glob": "~/.vscode-server/extensions/anthropic.claude-code-*/resources/native-binary/claude"},
-}
 CONDITIONS = {  # condition -> development set
     "oneshot": None,
     "twin": "twin",
@@ -66,12 +61,11 @@ of it, the drawer is closed, and no other object has been knocked off the counte
 ## What to deliver
 
 `policy.py` in this directory, defining `run(api)`. `API.md` documents the `api` object;
-it is the only way your program can sense and act. `SCENE.md` describes the kitchen as a
-real-to-sim reconstruction measured it.
+it is the only way your program can sense and act. `SCENE.md` describes the reference simulated kitchen.
 
 ## How your program will be used
 
-After you finish, `policy.py` is run in the real kitchen, many times, in situations you
+After you finish, `policy.py` is run in held-out simulated kitchens, many times, in situations you
 have not seen. Things will not be exactly where they are in your development scenes. It
 must work without you: nobody will edit it afterwards.
 
@@ -98,8 +92,8 @@ DEV_TEXT = {
            "that fails the import check does not use one up.\n\n{what}",
 }
 SET_TEXT = {
-    "twin": "The development scenes are the reconstructed kitchen (`SCENE.md`) as it was "
-            "captured. The {n} scenes differ only in the perception error.",
+    "twin": "The development scenes are the reconstructed kitchen (`SCENE.md`) in its "
+            "reference layout. The {n} scenes differ only in the perception error.",
     "family": "The development scenes are {n} variations of the reconstructed kitchen "
               "(`SCENE.md`): the cup position and orientation, how far the drawer is open at "
               "the start, and the other objects on the counter and in the drawer differ from "
@@ -108,7 +102,7 @@ SET_TEXT = {
                  "(`SCENE.md`): the cup position and orientation, how far the drawer is open at "
                  "the start, and the other objects on the counter and in the drawer differ from "
                  "scene to scene. The size of the perception error differs too, from about 2.5 mm "
-                 "to 10 mm, because it is not known how accurate perception will be in the real "
+                 "to 10 mm, because it is not known how accurate perception will be in the test "
                  "kitchen; the evaluation output gives each scene's level.",
     "naive": "The development scenes are {n} randomised variations of the reconstructed "
              "kitchen (`SCENE.md`): the cup position and orientation, how far the drawer is "
@@ -161,16 +155,15 @@ def scene_doc(cfg):
     hx, hy, hz = cfg.interior_half
     handle_x = cfg.counter_front_x + cfg.handle_offset_x
     return f"""\
-# The kitchen, as reconstructed
+# The reference simulated kitchen
 
-These values come from a real-to-sim reconstruction of the target kitchen. They are
-measurements, so each carries an error of up to a centimetre or so, and they describe the
-kitchen at the moment it was captured. Frame and units as in `API.md`.
+These nominal values come from product dimensions and modelling assumptions. The test
+kitchens can differ from this development configuration. Frame and units as in `API.md`.
 
 - Counter: top surface at z = {cfg.counter_top_z:.3f}; front face at x = {cfg.counter_front_x:.3f};
   it spans y from {-cfg.counter_half_y:.2f} to {cfg.counter_half_y:.2f}.
 - Drawer: in the counter front, centred at y = {cfg.drawer_y:.3f}. It slides out toward the
-  robot (-x) by at most {cfg.drawer_max_open:.2f}. It was closed when captured.
+  robot (-x) by at most {cfg.drawer_max_open:.2f}. It starts closed in this layout.
 - Drawer interior: {2 * hx:.3f} long (x), {2 * hy:.3f} wide (y), side walls {cfg.drawer_wall_height:.3f} high;
   the drawer floor is at z = {cfg.drawer_z + 2 * cfg.drawer_wall:.3f}. The drawer front panel is
   {cfg.drawer_front_height:.3f} high and {cfg.drawer_panel:.3f} thick.
@@ -178,7 +171,7 @@ kitchen at the moment it was captured. Frame and units as in `API.md`.
   {-cfg.handle_offset_x:.3f} in front of the drawer front. With the drawer closed its grasp point is
   at ({handle_x:.3f}, {cfg.drawer_y:.3f}, {cfg.drawer_z + cfg.handle_z[1] - 0.03:.3f}).
 - Cup: an espresso cup with a handle, body diameter {cfg.cup_diameter:.3f}, height {cfg.cup_height:.3f},
-  about {cfg.cup_mass:.2f} kg. When captured it stood on the counter at
+  about {cfg.cup_mass:.2f} kg. In the reference layout it stands on the counter at
   ({cfg.cup_xy[0]:.2f}, {cfg.cup_xy[1]:.2f}) with its handle pointing toward the robot.
 - Robot: Franka Panda, base at the origin, parallel gripper that opens to 0.08.
 """
@@ -287,6 +280,8 @@ class EvalServer(threading.Thread):
 
 def find_binary(agent):
     paths = sorted(glob(os.path.expanduser(AGENTS[agent]["glob"])))
+    if not paths and shutil.which(agent):
+        return shutil.which(agent)
     if not paths:
         raise FileNotFoundError(f"no {agent} binary matches {AGENTS[agent]['glob']}")
     return paths[-1]
@@ -628,6 +623,8 @@ def main():
     parser.add_argument("--dev-set", help="scene set to develop on (default: the condition's set)")
     parser.add_argument("--dev-offset", type=int, default=0,
                         help="index of the first development scene in that set")
+    parser.add_argument("--select-checkpoint", action="store_true",
+                        help="also save selected_policy.py using 16 independent simulated validation scenes")
     parser.add_argument("--finalize-only", action="store_true",
                         help="rebuild run.json for a run that already happened")
     args = parser.parse_args()
@@ -643,6 +640,9 @@ def main():
     meta.update({"dev_set_file": args.dev_set or CONDITIONS[args.condition],
                  "dev_offset": args.dev_offset})
     (RUNS_DIR / args.run_id / "run.json").write_text(json.dumps(meta, indent=1))
+    if args.select_checkpoint and meta.get("evaluations_used"):
+        from replay_selection import publish_selection
+        publish_selection(RUNS_DIR / args.run_id)
 
 
 if __name__ == "__main__":

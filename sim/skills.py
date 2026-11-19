@@ -68,9 +68,10 @@ def _yaw_of(mat9):
 
 
 class SkillAPI:
-    def __init__(self, robot, model, data, noise_sigma=0.0, noise_seed=0, trace_limit=400):
+    def __init__(self, robot, model, data, noise_sigma=0.0, noise_seed=0, trace_limit=400, exact_readings=()):
         self._robot, self._model, self._data = robot, model, data
         self._sigma = float(noise_sigma)
+        self._exact_readings = frozenset(exact_readings)
         self._rng = np.random.default_rng(noise_seed)
         self._bias = {}
         self._trace = []
@@ -92,7 +93,9 @@ class SkillAPI:
             return value
         if key not in self._bias:
             self._bias[key] = self._rng.normal(0, self._sigma, value.shape)
-        return value + self._bias[key] + self._rng.normal(0, self._sigma / 4, value.shape)
+        noisy = value + self._bias[key] + self._rng.normal(0, self._sigma / 4, value.shape)
+        # Consume identical random draws on matched calls during sensor interventions.
+        return value if key in self._exact_readings else noisy
 
     @staticmethod
     def _r(x, n=4):

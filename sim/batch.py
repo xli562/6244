@@ -108,6 +108,12 @@ def cmd_run(args):
     print(f"done: {len(jobs) - len(bad)}/{len(jobs)} runs finished properly", flush=True)
     for rid, problem in bad.items():
         print(f"  NOT OK {rid}: {problem}", flush=True)
+    if args.select_checkpoint:
+        from replay_selection import publish_selection
+        for job in jobs:
+            rid = run_id(*job)
+            if job[2] != "oneshot" and rid not in bad:
+                publish_selection(harness.RUNS_DIR / rid)
 
 
 def _score_job(args):
@@ -153,7 +159,7 @@ def run_permutation(a, b, n_perm=20000, seed=0):
 
 
 def cmd_score(args):
-    out_dir = HERE / "outputs" / args.tag
+    out_dir = HERE / "outputs" / (args.tag + "_selected" if args.selected else args.tag)
     out_dir.mkdir(parents=True, exist_ok=True)
     sets = {name: variants.load_set(name) for name in TEST_SETS}
     rows = []
@@ -163,8 +169,16 @@ def cmd_score(args):
         meta = load_meta(run_dir.name)
         if not run_dir.is_dir() or meta is None:
             continue
+        source = (run_dir / "final_policy.py").read_text()
+        if args.selected and meta["condition"] != "oneshot":
+            record = json.loads((run_dir / "selection.json").read_text())
+            if hashlib.sha256(source.encode()).hexdigest() != record["original_sha256"]:
+                raise ValueError(f"Final policy changed since selection: {run_dir}")
+            source = (run_dir / "selected_policy.py").read_text()
+            if hashlib.sha256(source.encode()).hexdigest() != record["selected_sha256"]:
+                raise ValueError(f"Selected policy changed: {run_dir}")
         rows.append({"run_id": run_dir.name, "agent": meta["agent"], "condition": meta["condition"],
-                     "source": (run_dir / "final_policy.py").read_text(), "problem": problem_of(meta),
+                     "source": source, "problem": problem_of(meta),
                      "dev_history": [h["successes"] for h in meta["evaluation_history"]],
                      "dev_episodes": meta["dev_episodes"], "wall_seconds": meta.get("wall_seconds"),
                      "usage": meta.get("usage")})
@@ -266,10 +280,12 @@ def main():
     p.add_argument("--parallel", type=int, default=3, help="simultaneous runs per agent")
     p.add_argument("--attempts", type=int, default=2)
     p.add_argument("--retry-wait", type=int, default=600)
+    p.add_argument("--select-checkpoint", action="store_true", help="select after development, including completed runs")
     p.set_defaults(func=cmd_run)
     p = sub.add_parser("score")
     p.add_argument("--tag", default="main")
     p.add_argument("--workers", type=int, default=200)
+    p.add_argument("--selected", action="store_true", help="score validation selections into a separate output directory")
     p.set_defaults(func=cmd_score)
     args = parser.parse_args()
     args.func(args)

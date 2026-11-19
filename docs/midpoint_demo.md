@@ -9,15 +9,17 @@ Midpoint check: Mon 19 Oct 2026. Status: **M1 done** (sim baseline and scripted 
 3. Numbers: oracle succeeds on the default scene, on **20/20** exported variants, and on **50/50** from a second seed
 4. A failure the variants caught: with the cup rotated 0.5 rad, the open gripper snagged the mug handle while lifting away and tipped the cup. Fix: rotate the gripper with the cup. One scene would never have shown this.
 
-## 2. Reproduce (≈2 min)
+## 2. Run the current simulator
 
 ```bash
 conda activate robot          # Python 3.11, MuJoCo 3.16.0, mink 1.3.0
 sim/setup_assets.sh           # Panda + mug, pinned commits, into third_party/
-python sim/demo_cup_drawer.py # renders the MP4, prints the success check
-python sim/variants.py --n 20 # export 20 variants as XML files, verify each with the oracle
-python sim/demo_cup_drawer.py --xml sim/outputs/family/variant_006.xml  # run any one file
+python sim/demo_cup_drawer.py --out sim/outputs/demo_cup_drawer.mp4
+python sim/variants.py --profile family --n 20 --name demo_family_20 --seed 42 --grid
+python sim/demo_cup_drawer.py --set demo_family_20 --index 6
 ```
+
+The current generator saves episode configurations as JSON. The XML files in the midpoint demo are historical exports. The multi-task benchmark and CLI workflow have a [separate guide](simulator_experiments.md).
 
 Headless rendering uses EGL (`MUJOCO_GL=egl` is set in the `robot` env).
 

@@ -1,0 +1,20 @@
+{
+  "suite": "libero_90",
+  "tasks": [
+    {
+      "task": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_frying_pan_on_it",
+      "bddl_sha256": "f478f7d636e36ff4f6a689a43e01d9b9310429a7e3c5e7c397cbea766e81c125",
+      "states_sha256": "ef83e469d0c68f21e08b189838bfa07aa0f72dbe9de323b798023064fea924ef"
+    },
+    {
+      "task": "LIVING_ROOM_SCENE4_stack_the_left_bowl_on_the_right_bowl_and_place_them_in_the_tray",
+      "bddl_sha256": "a92734858c6df932338de4f6d70d0bab628b8ac6588ec22fd3b3d56d01c67d56",
+      "states_sha256": "7eb5dc78c830d9e192319fed498c72bee525b49c47695a5475f310ef60649315"
+    },
+    {
+      "task": "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy",
+      "bddl_sha256": "9fd25c1eb92bd285325d639bdc5920e4ca38b2e39b346e46202dbe6eca7dd37b",
+      "states_sha256": "243933134cc04a4157c5a6e8f82e1c5d62fa8255d1f648616e2f87e5ee9ddced"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "revision": "8f1084e3132a39270c3a13ebe37270a43ece2a01",
+  "debug_indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "validation_indices": [
+    6,
+    7,
+    8,
+    9
+  ],
+  "tasks": [
+    {
+      "task": "STUDY_SCENE3_pick_up_the_red_mug_and_place_it_to_the_right_of_the_caddy",
+      "suite": "libero_90",
+      "group": "repair",
+      "bddl_sha256": "67ac86171a2ffc17064e839487189a8d28b0e33b7896ff39d82ce3bfe02ada3e",
+      "states_sha256": "3635e5a143164b64f465eaa5bd568055941764e2ed78368ea2cef24a674dbf7e",
+      "user_instruction": "pick up the red mug and place it to the right of the caddy"
+    },
+    {
+      "task": "KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer",
+      "suite": "libero_90",
+      "group": "repair",
+      "bddl_sha256": "18b09520ca3a22695c469c6537dc94ef58bbb2326b0d870e22ac7b1daf4f8f49",
+      "states_sha256": "7cacb74a4b6da89f2c204a090b41e603a238bfad597895c91aba1b94f2ff1b1f"
+    },
+    {
+      "task": "STUDY_SCENE1_pick_up_the_yellow_and_white_mug_and_place_it_to_the_right_of_the_caddy",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "46fe1a53f826f4e7e67a02695578aee431e07847fe12b50ef78e300167551fe4",
+      "states_sha256": "30bcb154c963969d06833e6e18a1f65476730569dec71be7a3f33f265075c1de"
+    },
+    {
+      "task": "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "5d3f98f9daa18ea19d7d27372641882eedb7fb28287f25a8ae22d61333efb5b4",
+      "states_sha256": "38b623f32e0b619f6c90766dad24c9f069c53a83ed1d7e7821d59f84bb89323f"
+    },
+    {
+      "task": "KITCHEN_SCENE1_open_the_bottom_drawer_of_the_cabinet",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "26453b960c3c071a731e13d1447c31dd4dc939a8852030edad5e90d0ee465e0e",
+      "states_sha256": "02a601c937685ac78c30d771adf2df16231c1d4bcb4618cc051553ac52fb180a"
+    },
+    {
+      "task": "KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet_and_put_the_bowl_in_it",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "642afeac021a9e8d20256da9fcd8a2f34ca2dd4df89a4d67c90b9facf46e4e97",
+      "states_sha256": "bf0c64a5a8bfb47813856a2306152c3771f7ddf5c6f8435f1acb5e029bbaf9ab"
+    },
+    {
+      "task": "KITCHEN_SCENE10_close_the_top_drawer_of_the_cabinet_and_put_the_black_bowl_on_top_of_it",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "da9fc4fcf5523a989a547b61450c0809926e710af0c37341b15593930e42f8d9",
+      "states_sha256": "2fad3fb48d329a3a0e13db2736c8aa53726f521ee962a9d167c5dd53478f2146"
+    },
+    {
+      "task": "KITCHEN_SCENE7_open_the_microwave",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "af12c019cde75245f2d301c2519dca670818f6827ad412853777ec9389874f2f",
+      "states_sha256": "7dd3a8f1306f45d14c82062c6e2d5e86808267be8e455d9122498b05a2bc2ea8"
+    }
+  ]
+}

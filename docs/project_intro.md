@@ -1,6 +1,6 @@
 # Project Intro: Real-to-Simulation and Scene Variation
 
-**Next action for the team:** agree on the midpoint-check status (Mon 19 Oct) using the milestone table in section 5.
+The current project runs entirely in simulation. The [multi-task experiment guide](simulator_experiments.md) covers the online task assets, data splits and CLI-based development workflow. The original Project 1 scope and milestone proposal are recorded below.
 
 Source: [Project Reference for Agentic Robotics](https://docs.google.com/document/d/1-E_lPR6wKXm5POH6zqdR3vsvybdHcCFnVygHtACUlHI/edit), Project 1. Course-level requirements are in [project_requirement.md](project_requirement.md).
 

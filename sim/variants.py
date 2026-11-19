@@ -31,6 +31,7 @@ import os
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 from pathlib import Path
+from tempfile import mkstemp
 
 import mujoco
 import numpy as np
@@ -289,7 +290,14 @@ def vary_noise(source, seed, levels=NOISE_LEVELS_V2):
 def save_set(result, name=None):
     SETS_DIR.mkdir(parents=True, exist_ok=True)
     path = SETS_DIR / f"{name or result['profile']}.json"
-    path.write_text(json.dumps(result, indent=1))
+    fd, tmp = mkstemp(dir=path.parent)
+    temporary = Path(tmp)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            json.dump(result, stream, indent=1)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
     return path
 
 

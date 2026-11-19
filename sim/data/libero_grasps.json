@@ -1,0 +1,75 @@
+{
+  "revision": "8f1084e3132a39270c3a13ebe37270a43ece2a01",
+  "debug": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "validation": [
+    6,
+    7,
+    8,
+    9
+  ],
+  "tasks": [
+    {
+      "task": "KITCHEN_SCENE10_close_the_top_drawer_of_the_cabinet_and_put_the_black_bowl_on_top_of_it",
+      "suite": "libero_90",
+      "group": "repair",
+      "bddl_sha256": "da9fc4fcf5523a989a547b61450c0809926e710af0c37341b15593930e42f8d9",
+      "states_sha256": "2fad3fb48d329a3a0e13db2736c8aa53726f521ee962a9d167c5dd53478f2146"
+    },
+    {
+      "task": "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy",
+      "suite": "libero_90",
+      "group": "repair",
+      "bddl_sha256": "5d3f98f9daa18ea19d7d27372641882eedb7fb28287f25a8ae22d61333efb5b4",
+      "states_sha256": "38b623f32e0b619f6c90766dad24c9f069c53a83ed1d7e7821d59f84bb89323f"
+    },
+    {
+      "task": "KITCHEN_SCENE5_put_the_black_bowl_on_the_plate",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "858a18579b18d23aca74f0c1042841c0ae9117f4952eb42be6260b4e46052b50",
+      "states_sha256": "f06571078b88f17dfba15b5f2f4ef8d28f6984d0d601937d1c0d20221a9abeec"
+    },
+    {
+      "task": "KITCHEN_SCENE2_stack_the_black_bowl_at_the_front_on_the_black_bowl_in_the_middle",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "381cf12788739624b2037b3cabca34b8efdd7c6397bf38c1af7056caf49d38b7",
+      "states_sha256": "6627eb724a230e7440b28107601c1ac0b8c8a7fb560973d4926db022c3ad5818"
+    },
+    {
+      "task": "STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "6634a1c13651a4958442c58879c25e1ece3ffdb9cfba2d7fe233d7d95f9c35ed",
+      "states_sha256": "d917b0f0f7c3a0714622c2e49ad7fe8668c72443e8bf35c4860299edf4337e80"
+    },
+    {
+      "task": "STUDY_SCENE4_pick_up_the_book_on_the_left_and_place_it_on_top_of_the_shelf",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "cc32019a35c3bf065ea454992d3b16e0c2d6d9882e1e762ff41ebe4f5728f2da",
+      "states_sha256": "0b7fc2415bdbd81cbe3ba6d161326f4ec8803041a77df1524887d500f8dee308"
+    },
+    {
+      "task": "LIVING_ROOM_SCENE3_pick_up_the_cream_cheese_and_put_it_in_the_tray",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "394de660979995c9dd1131bdbfa5fb25eb824828e60dee25a5b80c3cbfd5155a",
+      "states_sha256": "c9a6fd943c3bec5e5ec7ad264c928041e74ed411374d37396b4726f0045b17f6"
+    },
+    {
+      "task": "KITCHEN_SCENE10_put_the_butter_at_the_front_in_the_top_drawer_of_the_cabinet_and_close_it",
+      "suite": "libero_90",
+      "group": "fresh",
+      "bddl_sha256": "af0684ddb06f1b9b1f151db3bea2d390e3b8b8eed1f2529b2e82d58c5e227709",
+      "states_sha256": "c1b29d1329cf4d717393078685346a140d5ea9dd49091b308a0b0ea1170d2acd"
+    }
+  ]
+}

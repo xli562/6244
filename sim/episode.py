@@ -228,7 +228,8 @@ def run_episode(episode, policy_source, video=None, trace_limit=400):
     robot = Robot(model, data, cameras=("overview", "side") if video else (),
                   max_time=MAX_SIM_TIME, on_step=monitor)
     api = SkillAPI(robot, model, data, noise_sigma=episode.get("noise_sigma", 0.0),
-                   noise_seed=episode.get("noise_seed", 0), trace_limit=trace_limit)
+                   noise_seed=episode.get("noise_seed", 0), trace_limit=trace_limit,
+                   exact_readings=episode.get("exact_readings", ()))
     error = None
     try:
         policy = load_policy(policy_source)
