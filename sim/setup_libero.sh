@@ -15,5 +15,5 @@ test "$(git -C "$checkout" rev-parse HEAD)" = "$revision" || { echo 'LIBERO revi
 if [ ! -x "$envdir/bin/python" ]; then
   "${PYTHON:-python3.11}" -m venv "$envdir"
 fi
-"$envdir/bin/python" -m pip install 'numpy==1.26.4' 'mujoco==3.3.0' 'robosuite==1.4.1' 'bddl==1.0.1' 'gym==0.26.2' easydict h5py imageio pyyaml matplotlib future
+"$envdir/bin/python" -m pip install 'numpy==1.26.4' 'mujoco==3.3.0' 'robosuite==1.4.1' 'bddl==1.0.1' 'gym==0.26.2' easydict h5py imageio imageio-ffmpeg pyyaml matplotlib future
 "$envdir/bin/python" "$root/sim/libero_long.py" prepare
